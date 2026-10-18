@@ -67,14 +67,14 @@ Edits must open in Capture One as normal, adjustable settings on the original fi
 
 ## Architecture and stack
 
-The browser handles editing and live preview; the server handles heavy work (raw decoding, matching, batch export) and team data. (The architecture diagram lives in the Claude Doc.)
+The browser handles editing, live preview, raw decoding and look matching; a server is needed later for team data (phase 6). (The architecture diagram lives in the Claude Doc.)
 
 | Layer | Recommended (to confirm) | Why |
 | --- | --- | --- |
 | Front end | React + TypeScript | Widely supported; agents write it well |
 | Live preview | WebGL in the browser | Instant slider feedback without server round trips |
 | Back end | Python (FastAPI) | Strongest libraries for image analysis and raw decoding |
-| Raw decoding | LibRaw (via rawpy) | Supports most camera raw formats |
+| Raw decoding | LibRaw compiled to WebAssembly, in the browser | Supports most camera raw formats; photos never leave the editor's computer and no server is needed |
 | Database | PostgreSQL | Users, projects, looks, edit history |
 | File storage | Cloud object storage or office NAS | Depends on where photos live today |
 
@@ -101,7 +101,7 @@ Each phase ends with something an editor can use and test. The riskiest piece, C
 
 **Open questions**
 
-- [ ] Which camera models does the team shoot?
+- [x] Which camera models does the team shoot? **Sony A7 III** (ILCE-7M3, .ARW files)
 - [ ] Where do photos live today (local drives, NAS, cloud)?
 - [ ] How many editors, and do they work at the same time on one project?
 - [ ] Should photos be stored in the cloud, or processed locally and never uploaded?

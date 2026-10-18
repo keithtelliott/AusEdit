@@ -492,3 +492,10 @@ button.primary:hover:not(:disabled) {
   padding-left: 16px;
   font-size: 12px;
 }
+
+.badge.opening {
+  top: auto;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+}

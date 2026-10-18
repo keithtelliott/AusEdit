@@ -10,6 +10,9 @@ import { CurvesTool } from "./tools/CurvesTool";
 import { LevelsTool } from "./tools/LevelsTool";
 import { MatchTool } from "./tools/MatchTool";
 import { readPixels } from "./render/pixels";
+import { isRawFile, RAW_EXTENSIONS } from "./render/raw";
+
+const ACCEPT = ["image/jpeg", "image/png", "image/webp", ...RAW_EXTENSIONS.map((e) => `.${e}`)].join(",");
 
 interface OpenImage {
   name: string;
@@ -18,6 +21,8 @@ interface OpenImage {
   histogram: Histogram;
   /** Small copy for analysis and look matching. */
   thumbnail: Float32Array;
+  /** Camera and exposure details, for raw files. */
+  description?: string;
 }
 
 export function App() {
@@ -30,6 +35,7 @@ export function App() {
   const [showOriginal, setShowOriginal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [opening, setOpening] = useState<string | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -51,13 +57,15 @@ export function App() {
   const openFile = useCallback(async (file: File) => {
     const renderer = rendererRef.current;
     if (!renderer) return;
-    if (!file.type.startsWith("image/")) {
-      setError(`${file.name} is not an image. Open a JPEG.`);
+    const raw = isRawFile(file.name);
+    if (!raw && !file.type.startsWith("image/")) {
+      setError(`${file.name} is not an image. Open a JPEG or a camera raw file.`);
       return;
     }
+    setOpening(file.name);
     try {
       const loaded = await loadImage(file, renderer.maxTextureSize);
-      renderer.setImage(loaded.source, loaded.width, loaded.height);
+      renderer.setImage(loaded.texture);
       setError(null);
       setSettings(DEFAULT_SETTINGS);
       setShowOriginal(false);
@@ -66,10 +74,14 @@ export function App() {
         width: loaded.originalWidth,
         height: loaded.originalHeight,
         histogram: loaded.histogram,
-        thumbnail: readPixels(loaded.source),
+        thumbnail: readPixels(loaded.preview),
+        description: loaded.description,
       });
-    } catch {
-      setError(`Could not open ${file.name}. Raw files are not supported yet; try a JPEG.`);
+    } catch (e) {
+      console.error(e);
+      setError(`Could not open ${file.name}${raw ? ". This raw format or camera may not be supported." : "."}`);
+    } finally {
+      setOpening(null);
     }
   }, []);
 
@@ -93,7 +105,7 @@ export function App() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept={ACCEPT}
           hidden
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -104,6 +116,7 @@ export function App() {
         {image && (
           <span className="file-info">
             {image.name} · {image.width} × {image.height}
+            {image.description && ` · ${image.description}`}
           </span>
         )}
         <span className="spacer" />
@@ -135,7 +148,8 @@ export function App() {
         }}
       >
         <canvas ref={canvasRef} hidden={!image} />
-        {!image && <div className="empty">Open a JPEG, or drag one here.</div>}
+        {!image && !opening && <div className="empty">Open a JPEG or camera raw file, or drag one here.</div>}
+        {opening && <div className="badge opening">Opening {opening}…</div>}
         {error && <div className="error">{error}</div>}
         {showOriginal && <div className="badge">Original</div>}
       </main>

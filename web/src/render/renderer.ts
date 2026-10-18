@@ -1,6 +1,7 @@
 import { STRENGTH, wheelOffset, type Vec3 } from "../edit/color";
 import { buildLut, LUT_SIZE } from "../edit/lut";
 import { BW_COLORS, SLIDERS, type EditSettings } from "../edit/settings";
+import type { TextureImage } from "./loadImage";
 import { FRAGMENT_SHADER, VERTEX_SHADER } from "./shaders";
 
 /** Draws one image with the current settings into a canvas via WebGL2. */
@@ -25,13 +26,20 @@ export class Renderer {
     return this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number;
   }
 
-  setImage(source: TexImageSource, width: number, height: number): void {
+  setImage(image: TextureImage): void {
     const { gl } = this;
-    this.canvas.width = width;
-    this.canvas.height = height;
+    this.canvas.width = image.width;
+    this.canvas.height = image.height;
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    if (image.kind === "element") {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image.source);
+    } else {
+      // Rows of 3 × 2-byte samples needn't be 4-byte aligned.
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB16F, image.width, image.height, 0, gl.RGB, gl.HALF_FLOAT, image.data);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    }
   }
 
   render(settings: EditSettings, bypass: boolean): void {
