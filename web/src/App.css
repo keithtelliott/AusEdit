@@ -1,0 +1,185 @@
+/* Neutral dark gray UI so it doesn't color-cast how photos are judged. */
+:root {
+  --bg: #1e1e1e;
+  --panel: #262626;
+  --border: #383838;
+  --text: #d8d8d8;
+  --muted: #8a8a8a;
+  --accent: #5b9bf0;
+  --danger: #e5675f;
+  color-scheme: dark;
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+.toolbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.file-info {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: #333;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #3d3d3d;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.viewer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.viewer.dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+}
+
+.viewer canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.error {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: #3a2321;
+  color: var(--danger);
+}
+
+.badge {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 12px;
+}
+
+.sidebar {
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.panel {
+  padding: 4px 14px 16px;
+}
+
+.panel-group h2 {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.slider-row {
+  margin-bottom: 8px;
+}
+
+.slider-head {
+  display: flex;
+  justify-content: space-between;
+}
+
+.slider-head label {
+  cursor: default;
+  user-select: none;
+}
+
+.slider-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-row.changed .slider-value {
+  color: var(--text);
+}
+
+.slider-row input[type="range"] {
+  width: 100%;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.panel-hint {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
