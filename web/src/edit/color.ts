@@ -4,6 +4,14 @@ export type Vec3 = [number, number, number];
 
 export const LUMA: Vec3 = [0.2126, 0.7152, 0.0722];
 
+/** How far each color tool can push color at 100% saturation, in display-space units. */
+export const STRENGTH = {
+  master: 0.15,
+  zone: 0.3,
+  lightness: 0.25,
+  splitTone: 0.3,
+} as const;
+
 /** Fully saturated RGB for a hue in degrees (0 = red, 120 = green, 240 = blue). */
 export function hueToRgb(hue: number): Vec3 {
   const h = (((hue % 360) + 360) % 360) / 60;

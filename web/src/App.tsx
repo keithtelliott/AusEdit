@@ -8,12 +8,16 @@ import { BlackWhiteTool } from "./tools/BlackWhiteTool";
 import { ColorBalanceTool } from "./tools/ColorBalanceTool";
 import { CurvesTool } from "./tools/CurvesTool";
 import { LevelsTool } from "./tools/LevelsTool";
+import { MatchTool } from "./tools/MatchTool";
+import { readPixels } from "./render/pixels";
 
 interface OpenImage {
   name: string;
   width: number;
   height: number;
   histogram: Histogram;
+  /** Small copy for analysis and look matching. */
+  thumbnail: Float32Array;
 }
 
 export function App() {
@@ -62,6 +66,7 @@ export function App() {
         width: loaded.originalWidth,
         height: loaded.originalHeight,
         histogram: loaded.histogram,
+        thumbnail: readPixels(loaded.source),
       });
     } catch {
       setError(`Could not open ${file.name}. Raw files are not supported yet; try a JPEG.`);
@@ -135,12 +140,15 @@ export function App() {
         {showOriginal && <div className="badge">Original</div>}
       </main>
 
-      <aside className={`sidebar${image ? "" : " disabled"}`}>
+      <aside className="sidebar">
+        <MatchTool settings={settings} onApply={setSettings} target={image?.thumbnail ?? null} />
+        <div className={image ? undefined : "disabled"}>
         <BasicTools settings={settings} onChange={update} />
         <LevelsTool settings={settings} onChange={update} histogram={histogram} />
         <CurvesTool settings={settings} onChange={update} histogram={histogram} />
         <ColorBalanceTool settings={settings} onChange={update} />
         <BlackWhiteTool settings={settings} onChange={update} />
+        </div>
       </aside>
     </div>
   );

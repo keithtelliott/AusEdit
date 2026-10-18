@@ -137,7 +137,7 @@ button.active {
   padding-bottom: 24px;
 }
 
-.sidebar.disabled {
+.sidebar .disabled {
   opacity: 0.5;
   pointer-events: none;
 }
@@ -412,4 +412,83 @@ button.active {
   color: var(--muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Match look */
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #6aa7f3;
+}
+
+.button-row {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.button-row button {
+  flex: 1;
+}
+
+.reference img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  background: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.reference-name {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-error {
+  margin: 6px 0;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.stats {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats th,
+.stats td {
+  padding: 2px 4px;
+  text-align: right;
+}
+
+.stats th:first-child {
+  text-align: left;
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.stats thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.match-summary {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
 }

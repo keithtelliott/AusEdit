@@ -1,13 +1,7 @@
-import { wheelOffset, type Vec3 } from "../edit/color";
+import { STRENGTH, wheelOffset, type Vec3 } from "../edit/color";
 import { buildLut, LUT_SIZE } from "../edit/lut";
 import { BW_COLORS, SLIDERS, type EditSettings } from "../edit/settings";
 import { FRAGMENT_SHADER, VERTEX_SHADER } from "./shaders";
-
-// How far each tool can push color at 100% saturation, in display-space units.
-const MASTER_STRENGTH = 0.15;
-const ZONE_STRENGTH = 0.3;
-const LIGHTNESS_STRENGTH = 0.25;
-const SPLIT_TONE_STRENGTH = 0.3;
 
 /** Draws one image with the current settings into a canvas via WebGL2. */
 export class Renderer {
@@ -63,15 +57,15 @@ export class Renderer {
     const bw = settings.blackWhite;
     gl.uniform1i(this.uniform("u_bwEnabled"), bw.enabled ? 1 : 0);
     gl.uniform1fv(this.uniform("u_bwSensitivity"), BW_COLORS.map((c) => bw.sensitivity[c] / 100));
-    this.vec3("u_bwHighlightTone", wheelOffset(bw.highlightTone, SPLIT_TONE_STRENGTH));
-    this.vec3("u_bwShadowTone", wheelOffset(bw.shadowTone, SPLIT_TONE_STRENGTH));
+    this.vec3("u_bwHighlightTone", wheelOffset(bw.highlightTone, STRENGTH.splitTone));
+    this.vec3("u_bwShadowTone", wheelOffset(bw.shadowTone, STRENGTH.splitTone));
 
     const cb = settings.colorBalance;
-    this.vec3("u_cbMaster", wheelOffset(cb.master, MASTER_STRENGTH));
-    this.vec3("u_cbShadows", wheelOffset(cb.shadows, ZONE_STRENGTH));
-    this.vec3("u_cbMidtones", wheelOffset(cb.midtones, ZONE_STRENGTH));
-    this.vec3("u_cbHighlights", wheelOffset(cb.highlights, ZONE_STRENGTH));
-    const k = LIGHTNESS_STRENGTH / 100;
+    this.vec3("u_cbMaster", wheelOffset(cb.master, STRENGTH.master));
+    this.vec3("u_cbShadows", wheelOffset(cb.shadows, STRENGTH.zone));
+    this.vec3("u_cbMidtones", wheelOffset(cb.midtones, STRENGTH.zone));
+    this.vec3("u_cbHighlights", wheelOffset(cb.highlights, STRENGTH.zone));
+    const k = STRENGTH.lightness / 100;
     this.vec3("u_cbLightness", [cb.shadows.lightness * k, cb.midtones.lightness * k, cb.highlights.lightness * k]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
