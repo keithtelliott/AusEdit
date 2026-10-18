@@ -27,7 +27,7 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: 1fr 300px;
   grid-template-rows: auto 1fr;
   height: 100vh;
 }
@@ -134,20 +134,89 @@ button.active {
   background: var(--panel);
   border-left: 1px solid var(--border);
   overflow-y: auto;
+  padding-bottom: 24px;
 }
 
-.panel {
-  padding: 4px 14px 16px;
+.sidebar.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-.panel-group h2 {
-  margin: 14px 0 6px;
+.muted {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Tool sections */
+
+.tool {
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-head {
+  display: flex;
+  align-items: center;
+  padding: 0 10px 0 6px;
+}
+
+.tool-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  text-align: left;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
 }
+
+.tool-toggle:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+}
+
+.chevron {
+  width: 10px;
+}
+
+.tool-reset {
+  padding: 1px 8px;
+  font-size: 11px;
+}
+
+.tool-body {
+  padding: 0 14px 12px;
+}
+
+.tool-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tool-subhead {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+}
+
+/* Sliders */
 
 .slider-row {
   margin-bottom: 8px;
@@ -159,6 +228,9 @@ button.active {
 }
 
 .slider-head label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   cursor: default;
   user-select: none;
 }
@@ -178,8 +250,166 @@ button.active {
   accent-color: var(--accent);
 }
 
-.panel-hint {
-  margin-top: 16px;
-  color: var(--muted);
+.slider-track {
+  height: 3px;
+  margin-top: 3px;
+  border-radius: 2px;
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Channel tabs */
+
+.tabs {
+  display: flex;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tabs button {
+  flex: 1;
+  padding: 3px 0;
+  border: none;
+  border-radius: 0;
+  background: none;
   font-size: 12px;
+}
+
+.tabs button + button {
+  border-left: 1px solid var(--border);
+}
+
+.tabs button.active {
+  background: #3d3d3d;
+  color: #fff;
+}
+
+/* Levels and curves graphs */
+
+.levels-graph,
+.curve-editor {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  background: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.levels-graph {
+  height: 70px;
+}
+
+.levels-clip {
+  fill: rgba(0, 0, 0, 0.45);
+}
+
+.levels-marker {
+  stroke: #ddd;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.levels-marker.mid {
+  stroke: #888;
+  stroke-dasharray: 3 3;
+}
+
+.curve-editor {
+  aspect-ratio: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.curve-grid line {
+  stroke: #333;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.curve-baseline {
+  stroke: #444;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.curve-line {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.curve-point {
+  fill: #1a1a1a;
+  stroke: #eee;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  cursor: grab;
+}
+
+/* Color wheels */
+
+.wheel-master {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.wheel-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.wheel-row.two {
+  justify-content: space-around;
+}
+
+.wheel-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.wheel-label {
+  font-size: 12px;
+}
+
+.wheel {
+  position: relative;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.wheel-puck {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+.wheel-readout {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }

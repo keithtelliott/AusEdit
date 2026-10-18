@@ -1,11 +1,21 @@
-import { SLIDERS, type EditSettings } from "../edit/settings";
+import { wheelOffset, type Vec3 } from "../edit/color";
+import { buildLut, LUT_SIZE } from "../edit/lut";
+import { BW_COLORS, SLIDERS, type EditSettings } from "../edit/settings";
 import { FRAGMENT_SHADER, VERTEX_SHADER } from "./shaders";
 
-/** Draws one image with the current slider settings into a canvas via WebGL2. */
+// How far each tool can push color at 100% saturation, in display-space units.
+const MASTER_STRENGTH = 0.15;
+const ZONE_STRENGTH = 0.3;
+const LIGHTNESS_STRENGTH = 0.25;
+const SPLIT_TONE_STRENGTH = 0.3;
+
+/** Draws one image with the current settings into a canvas via WebGL2. */
 export class Renderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
   private texture: WebGLTexture;
+  private lutTexture: WebGLTexture;
+  private lutFor: Pick<EditSettings, "levels" | "curves"> | null = null;
   private uniforms = new Map<string, WebGLUniformLocation | null>();
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -13,15 +23,8 @@ export class Renderer {
     if (!gl) throw new Error("This browser does not support WebGL2.");
     this.gl = gl;
     this.program = linkProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);
-
-    const texture = gl.createTexture();
-    if (!texture) throw new Error("Could not create a WebGL texture.");
-    this.texture = texture;
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.texture = createTexture(gl);
+    this.lutTexture = createTexture(gl);
   }
 
   get maxTextureSize(): number {
@@ -39,23 +42,59 @@ export class Renderer {
 
   render(settings: EditSettings, bypass: boolean): void {
     const { gl } = this;
+    this.updateLut(settings);
+
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.uniform1i(this.uniform("u_image"), 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.lutTexture);
+    gl.uniform1i(this.uniform("u_lut"), 1);
     gl.uniform1i(this.uniform("u_bypass"), bypass ? 1 : 0);
+
     for (const s of SLIDERS) {
       // Exposure goes to the shader in stops; percentage sliders as -1..1.
       const value = s.id === "exposure" ? settings[s.id] : settings[s.id] / 100;
       gl.uniform1f(this.uniform(`u_${s.id}`), value);
     }
+
+    const bw = settings.blackWhite;
+    gl.uniform1i(this.uniform("u_bwEnabled"), bw.enabled ? 1 : 0);
+    gl.uniform1fv(this.uniform("u_bwSensitivity"), BW_COLORS.map((c) => bw.sensitivity[c] / 100));
+    this.vec3("u_bwHighlightTone", wheelOffset(bw.highlightTone, SPLIT_TONE_STRENGTH));
+    this.vec3("u_bwShadowTone", wheelOffset(bw.shadowTone, SPLIT_TONE_STRENGTH));
+
+    const cb = settings.colorBalance;
+    this.vec3("u_cbMaster", wheelOffset(cb.master, MASTER_STRENGTH));
+    this.vec3("u_cbShadows", wheelOffset(cb.shadows, ZONE_STRENGTH));
+    this.vec3("u_cbMidtones", wheelOffset(cb.midtones, ZONE_STRENGTH));
+    this.vec3("u_cbHighlights", wheelOffset(cb.highlights, ZONE_STRENGTH));
+    const k = LIGHTNESS_STRENGTH / 100;
+    this.vec3("u_cbLightness", [cb.shadows.lightness * k, cb.midtones.lightness * k, cb.highlights.lightness * k]);
+
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   dispose(): void {
     this.gl.deleteTexture(this.texture);
+    this.gl.deleteTexture(this.lutTexture);
     this.gl.deleteProgram(this.program);
+  }
+
+  /** Rebuilds the levels/curves LUT only when those settings changed. */
+  private updateLut({ levels, curves }: EditSettings): void {
+    if (this.lutFor?.levels === levels && this.lutFor.curves === curves) return;
+    const { gl } = this;
+    gl.bindTexture(gl.TEXTURE_2D, this.lutTexture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, LUT_SIZE, 1, 0, gl.RGBA, gl.FLOAT, buildLut(levels, curves));
+    this.lutFor = { levels, curves };
+  }
+
+  private vec3(name: string, v: Vec3): void {
+    this.gl.uniform3fv(this.uniform(name), v);
   }
 
   private uniform(name: string): WebGLUniformLocation | null {
@@ -64,6 +103,17 @@ export class Renderer {
     }
     return this.uniforms.get(name) ?? null;
   }
+}
+
+function createTexture(gl: WebGL2RenderingContext): WebGLTexture {
+  const texture = gl.createTexture();
+  if (!texture) throw new Error("Could not create a WebGL texture.");
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return texture;
 }
 
 function compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {

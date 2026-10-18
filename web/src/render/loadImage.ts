@@ -1,3 +1,5 @@
+import { computeHistogram, type Histogram } from "./histogram";
+
 export interface LoadedImage {
   source: HTMLCanvasElement;
   width: number;
@@ -5,6 +7,7 @@ export interface LoadedImage {
   /** Size of the original file, before any downscaling for preview. */
   originalWidth: number;
   originalHeight: number;
+  histogram: Histogram;
 }
 
 /** Longest edge of the preview texture. Full-resolution rendering comes with export. */
@@ -36,7 +39,7 @@ export async function loadImage(file: File, maxTextureSize: number): Promise<Loa
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, 0, 0, width, height);
 
-    return { source: canvas, width, height, originalWidth, originalHeight };
+    return { source: canvas, width, height, originalWidth, originalHeight, histogram: computeHistogram(canvas) };
   } finally {
     URL.revokeObjectURL(url);
   }

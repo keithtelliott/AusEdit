@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_SETTINGS, isDefault, type EditSettings, type SliderId } from "./edit/settings";
+import { DEFAULT_SETTINGS, isDefault, type EditSettings } from "./edit/settings";
+import type { Histogram } from "./render/histogram";
 import { loadImage } from "./render/loadImage";
 import { Renderer } from "./render/renderer";
-import { SliderPanel } from "./SliderPanel";
+import { BasicTools } from "./tools/BasicTools";
+import { BlackWhiteTool } from "./tools/BlackWhiteTool";
+import { ColorBalanceTool } from "./tools/ColorBalanceTool";
+import { CurvesTool } from "./tools/CurvesTool";
+import { LevelsTool } from "./tools/LevelsTool";
 
 interface OpenImage {
   name: string;
   width: number;
   height: number;
+  histogram: Histogram;
 }
 
 export function App() {
@@ -51,7 +57,12 @@ export function App() {
       setError(null);
       setSettings(DEFAULT_SETTINGS);
       setShowOriginal(false);
-      setImage({ name: file.name, width: loaded.originalWidth, height: loaded.originalHeight });
+      setImage({
+        name: file.name,
+        width: loaded.originalWidth,
+        height: loaded.originalHeight,
+        histogram: loaded.histogram,
+      });
     } catch {
       setError(`Could not open ${file.name}. Raw files are not supported yet; try a JPEG.`);
     }
@@ -66,7 +77,8 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [image]);
 
-  const changeSlider = (id: SliderId, value: number) => setSettings((s) => ({ ...s, [id]: value }));
+  const update = useCallback((patch: Partial<EditSettings>) => setSettings((s) => ({ ...s, ...patch })), []);
+  const histogram = image?.histogram ?? null;
 
   return (
     <div className="app">
@@ -123,8 +135,12 @@ export function App() {
         {showOriginal && <div className="badge">Original</div>}
       </main>
 
-      <aside className="sidebar">
-        <SliderPanel settings={settings} disabled={!image} onChange={changeSlider} />
+      <aside className={`sidebar${image ? "" : " disabled"}`}>
+        <BasicTools settings={settings} onChange={update} />
+        <LevelsTool settings={settings} onChange={update} histogram={histogram} />
+        <CurvesTool settings={settings} onChange={update} histogram={histogram} />
+        <ColorBalanceTool settings={settings} onChange={update} />
+        <BlackWhiteTool settings={settings} onChange={update} />
       </aside>
     </div>
   );
