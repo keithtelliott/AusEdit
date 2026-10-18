@@ -26,7 +26,7 @@ export interface DecodedRaw {
   description: string;
 }
 
-const SETTINGS: LibRawSettings = {
+export const RAW_SETTINGS: LibRawSettings = {
   // 2×2 binning instead of full demosaicing: a quarter of the pixels and much
   // faster, which suits on-screen editing. Full size comes with export.
   halfSize: true,
@@ -75,7 +75,7 @@ export function rawDisplayLinear(encoded: number): number {
   return SHOULDER_START + room * (1 - Math.exp(-(v - SHOULDER_START) / room));
 }
 
-export async function decodeRaw(file: File, settings: LibRawSettings = SETTINGS): Promise<DecodedRaw> {
+export async function decodeRaw(file: File, settings: LibRawSettings = RAW_SETTINGS): Promise<DecodedRaw> {
   const { default: LibRaw } = await import("libraw-wasm");
   const raw = new LibRaw();
   try {

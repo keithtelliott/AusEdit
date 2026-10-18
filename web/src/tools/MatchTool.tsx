@@ -1,97 +1,54 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef } from "react";
+import type { Photo } from "../batch/photos";
 import { analyze, MEDIAN, type ImageStats } from "../edit/analyze";
 import { describeSettings } from "../edit/describe";
-import type { MatchResult } from "../edit/match";
-import type { MatchRequest } from "../edit/matchWorker";
-import type { EditSettings } from "../edit/settings";
 import { readPixels } from "../render/pixels";
 import { ToolSection } from "./common";
 
-interface Reference {
+export interface Reference {
   name: string;
   url: string;
   stats: ImageStats;
 }
 
-interface Props {
-  settings: EditSettings;
-  /** Replaces all settings (a match sets every tool). */
-  onApply: (settings: EditSettings) => void;
-  /** Thumbnail of the open photo, or null when none is open. */
-  target: Float32Array | null;
+/** Decodes a reference photo and measures its look. */
+export async function loadReference(file: File): Promise<Reference> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return { name: file.name, url, stats: analyze(readPixels(img)) };
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    throw e;
+  }
 }
 
-/** Choose a reference photo, compare its look with this photo's, and match it. */
-export function MatchTool({ settings, onApply, target }: Props) {
+interface Props {
+  reference: Reference | null;
+  onChooseReference: (file: File) => void;
+  /** The open photo, or null when there is none. */
+  photo: Photo | null;
+  selectedCount: number;
+  /** Photos matched so far in the running batch match, or null when idle. */
+  progress: { done: number; total: number } | null;
+  error: string | null;
+  onMatch: () => void;
+  onUndo: () => void;
+}
+
+/** Choose a reference photo, compare its look with the open photo's, and match the selected photos. */
+export function MatchTool({ reference, onChooseReference, photo, selectedCount, progress, error, onMatch, onUndo }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const workerRef = useRef<Worker | null>(null);
-  const [reference, setReference] = useState<Reference | null>(null);
-  const [result, setResult] = useState<MatchResult | null>(null);
-  const [previous, setPrevious] = useState<EditSettings | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const targetStats = useMemo(() => (target ? analyze(target) : null), [target]);
-
-  // A new photo starts fresh: no match to show or undo.
-  useEffect(() => {
-    setResult(null);
-    setPrevious(null);
-  }, [target]);
-
-  useEffect(() => () => workerRef.current?.terminate(), []);
-  useEffect(
-    () => () => {
-      if (reference) URL.revokeObjectURL(reference.url);
-    },
-    [reference],
-  );
-
-  const chooseReference = async (file: File) => {
-    const url = URL.createObjectURL(file);
-    try {
-      const img = new Image();
-      img.src = url;
-      await img.decode();
-      setReference({ name: file.name, url, stats: analyze(readPixels(img)) });
-      setResult(null);
-      setError(null);
-    } catch {
-      URL.revokeObjectURL(url);
-      setError(`Could not open ${file.name}. Choose a JPEG.`);
-    }
-  };
-
-  const match = () => {
-    if (!target || !reference) return;
-    if (!workerRef.current) {
-      workerRef.current = new Worker(new URL("../edit/matchWorker.ts", import.meta.url), { type: "module" });
-    }
-    const worker = workerRef.current;
-    const before = settings;
-    setBusy(true);
-    worker.onmessage = (e: MessageEvent<MatchResult>) => {
-      setBusy(false);
-      setResult(e.data);
-      setPrevious(before);
-      onApply(e.data.settings);
-    };
-    worker.onerror = () => {
-      setBusy(false);
-      setError("Matching failed. Try another reference photo.");
-    };
-    worker.postMessage({ target, reference: reference.stats } satisfies MatchRequest);
-  };
-
-  const undo = () => {
-    if (!previous) return;
-    onApply(previous);
-    setPrevious(null);
-    setResult(null);
-  };
+  const matchLabel = progress
+    ? `Matching ${progress.done} of ${progress.total}…`
+    : selectedCount > 1
+      ? `Match ${selectedCount} photos`
+      : "Match look";
 
   return (
-    <ToolSection title="Match look" changed={previous !== null} onReset={undo} resetLabel="Undo match">
+    <ToolSection title="Match look" changed={!!photo?.preMatch} onReset={onUndo} resetLabel="Undo match">
       <input
         ref={fileRef}
         type="file"
@@ -99,7 +56,7 @@ export function MatchTool({ settings, onApply, target }: Props) {
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) void chooseReference(file);
+          if (file) onChooseReference(file);
           e.target.value = "";
         }}
       />
@@ -111,29 +68,44 @@ export function MatchTool({ settings, onApply, target }: Props) {
           </div>
         </div>
       ) : (
-        <p className="tool-hint">Choose an example photo whose look you want this photo to match.</p>
+        <p className="tool-hint">Choose an example photo whose look you want your photos to match.</p>
       )}
       <div className="button-row">
         <button onClick={() => fileRef.current?.click()}>{reference ? "Change reference…" : "Choose reference…"}</button>
-        <button className="primary" disabled={!reference || !target || busy} onClick={match}>
-          {busy ? "Matching…" : "Match look"}
+        <button className="primary" disabled={!reference || selectedCount === 0 || progress !== null} onClick={onMatch}>
+          {matchLabel}
         </button>
       </div>
+      {progress && <progress className="progress" value={progress.done} max={progress.total} />}
       {error && <p className="tool-error">{error}</p>}
-      {reference && <StatsTable reference={reference.stats} photo={targetStats} matched={result?.after ?? null} />}
-      {result && (
+      {reference && (
+        <StatsTable
+          reference={reference.stats}
+          photo={photo?.analysis ? analyzeOnce(photo.analysis) : null}
+          matched={photo?.matched ?? null}
+        />
+      )}
+      {photo?.matched && (
         <>
-          <h3 className="tool-subhead">Settings applied</h3>
+          <h3 className="tool-subhead">Settings applied to this photo</h3>
           <ul className="match-summary">
-            {describeSettings(result.settings).map((line) => (
+            {describeSettings(photo.settings).map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
-          <p className="tool-hint">Adjust any tool below to fine-tune. Undo match restores your earlier settings.</p>
+          <p className="tool-hint">Adjust any tool to fine-tune. Undo match restores the earlier settings.</p>
         </>
       )}
     </ToolSection>
   );
+}
+
+// Measuring a photo's look takes a few milliseconds; do it once per photo.
+const statsCache = new WeakMap<Float32Array, ImageStats>();
+function analyzeOnce(pixels: Float32Array): ImageStats {
+  let stats = statsCache.get(pixels);
+  if (!stats) statsCache.set(pixels, (stats = analyze(pixels)));
+  return stats;
 }
 
 // Characteristics shown in the table, scaled to readable whole numbers.

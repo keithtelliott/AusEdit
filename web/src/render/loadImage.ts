@@ -1,6 +1,6 @@
 import { uint16ToHalf } from "./halfFloat";
 import { computeHistogram, type Histogram } from "./histogram";
-import { decodeRaw, isRawFile, rawToDisplay } from "./raw";
+import { decodeRaw, isRawFile, RAW_SETTINGS, rawToDisplay } from "./raw";
 
 /** What the renderer uploads: a decoded 8-bit image, or 16-bit floats from a raw file. */
 export type TextureImage =
@@ -8,10 +8,11 @@ export type TextureImage =
   | { kind: "half"; data: Uint16Array; width: number; height: number };
 
 export interface LoadedImage {
-  texture: TextureImage;
-  /** An 8-bit copy for the histogram and look analysis. */
+  /** Null when only the preview was asked for. */
+  texture: TextureImage | null;
+  /** An 8-bit copy (at most ANALYSIS_EDGE for raws) for the histogram, thumbnails and analysis. */
   preview: HTMLCanvasElement;
-  /** Size of the original file, before any downscaling for preview. */
+  /** Size of the original file, before any downscaling. */
   originalWidth: number;
   originalHeight: number;
   histogram: Histogram;
@@ -19,21 +20,25 @@ export interface LoadedImage {
   description?: string;
 }
 
-/** Longest edge of the preview texture. Full-resolution rendering comes with export. */
-const PREVIEW_MAX_EDGE = 4096;
-/** Longest edge of the 8-bit analysis copy of a raw file. */
+/**
+ * - "preview": for the editor. Raws at half size; other images up to maxEdge.
+ * - "thumbnail": for importing into the batch. Only the small preview, no texture.
+ * - "half" / "full": for export.
+ */
+export type LoadSize = "preview" | "thumbnail" | "half" | "full";
+
+/** Longest edge of the 8-bit preview used for analysis and thumbnails. */
 const ANALYSIS_EDGE = 1024;
 
-export async function loadImage(file: File, maxTextureSize: number): Promise<LoadedImage> {
-  const maxEdge = Math.min(PREVIEW_MAX_EDGE, maxTextureSize);
-  return isRawFile(file.name) ? loadRaw(file, maxEdge) : loadEncoded(file, maxEdge);
+export async function loadImage(file: File, size: LoadSize, maxEdge: number): Promise<LoadedImage> {
+  return isRawFile(file.name) ? loadRaw(file, size, maxEdge) : loadEncoded(file, size, maxEdge);
 }
 
 /**
- * Decodes a JPEG (or any browser-supported image) and scales it to preview
- * size. Going through an <img> applies the camera's EXIF rotation.
+ * Decodes a JPEG (or any browser-supported image). Going through an <img>
+ * applies the camera's EXIF rotation.
  */
-async function loadEncoded(file: File, maxEdge: number): Promise<LoadedImage> {
+async function loadEncoded(file: File, size: LoadSize, maxEdge: number): Promise<LoadedImage> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -42,14 +47,16 @@ async function loadEncoded(file: File, maxEdge: number): Promise<LoadedImage> {
 
     const originalWidth = img.naturalWidth;
     const originalHeight = img.naturalHeight;
-    const scale = Math.min(1, maxEdge / Math.max(originalWidth, originalHeight));
+    const edge = size === "thumbnail" ? ANALYSIS_EDGE : maxEdge;
+    const want = size === "half" ? 0.5 : 1;
+    const scale = Math.min(want, edge / Math.max(originalWidth, originalHeight));
     const canvas = makeCanvas(Math.round(originalWidth * scale), Math.round(originalHeight * scale));
     const ctx = canvas.getContext("2d")!;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     return {
-      texture: { kind: "element", source: canvas, width: canvas.width, height: canvas.height },
+      texture: size === "thumbnail" ? null : { kind: "element", source: canvas, width: canvas.width, height: canvas.height },
       preview: canvas,
       originalWidth,
       originalHeight,
@@ -60,13 +67,13 @@ async function loadEncoded(file: File, maxEdge: number): Promise<LoadedImage> {
   }
 }
 
-async function loadRaw(file: File, maxEdge: number): Promise<LoadedImage> {
-  const decoded = await decodeRaw(file);
+async function loadRaw(file: File, size: LoadSize, maxEdge: number): Promise<LoadedImage> {
+  const decoded = await decodeRaw(file, { ...RAW_SETTINGS, halfSize: size !== "full" });
   let { width, height } = decoded;
   let data = rawToDisplay(decoded.data);
   const { fullWidth, fullHeight, description } = decoded;
 
-  // Half-size decoding already fits typical screens; shrink further only if needed.
+  // Shrink further only if the GPU can't hold it.
   const step = Math.ceil(Math.max(width, height) / maxEdge);
   if (step > 1) ({ data, width, height } = subsample(data, width, height, step));
 
@@ -87,13 +94,22 @@ async function loadRaw(file: File, maxEdge: number): Promise<LoadedImage> {
   ctx.putImageData(pixels, 0, 0);
 
   return {
-    texture: { kind: "half", data: uint16ToHalf(data), width, height },
+    texture: size === "thumbnail" ? null : { kind: "half", data: uint16ToHalf(data), width, height },
     preview,
     originalWidth: fullWidth,
     originalHeight: fullHeight,
     histogram: computeHistogram(preview),
     description,
   };
+}
+
+/** A copy scaled to fit within maxEdge, for grid thumbnails. */
+export function scaleCanvas(source: HTMLCanvasElement, maxEdge: number): HTMLCanvasElement {
+  const canvas = makeCanvas(...fit(source.width, source.height, maxEdge));
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas;
 }
 
 function subsample(data: Uint16Array, width: number, height: number, step: number) {

@@ -17,6 +17,7 @@ export function ToolSection({
   title: string;
   changed: boolean;
   onReset: () => void;
+  /** Text of the header's reset button; empty hides it. */
   resetLabel?: string;
   children: ReactNode;
 }) {
@@ -29,9 +30,16 @@ export function ToolSection({
           {title}
           {changed && <span className="dot" title="Edited" />}
         </button>
-        <button className="tool-reset" disabled={!changed} onClick={onReset} title={resetLabel === "Reset" ? `Reset ${title}` : resetLabel}>
-          {resetLabel}
-        </button>
+        {resetLabel && (
+          <button
+            className="tool-reset"
+            disabled={!changed}
+            onClick={onReset}
+            title={resetLabel === "Reset" ? `Reset ${title}` : resetLabel}
+          >
+            {resetLabel}
+          </button>
+        )}
       </header>
       {open && <div className="tool-body">{children}</div>}
     </section>

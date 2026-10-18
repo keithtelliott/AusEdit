@@ -13,8 +13,12 @@ export class Renderer {
   private lutFor: Pick<EditSettings, "levels" | "curves"> | null = null;
   private uniforms = new Map<string, WebGLUniformLocation | null>();
 
-  constructor(private canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext("webgl2");
+  /** @param keepPixels keep the image after drawing so it can be read back (for export). */
+  constructor(
+    readonly canvas: HTMLCanvasElement,
+    keepPixels = false,
+  ) {
+    const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: keepPixels });
     if (!gl) throw new Error("This browser does not support WebGL2.");
     this.gl = gl;
     this.program = linkProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);
